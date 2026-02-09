@@ -1,3 +1,5 @@
+**[NOTICE THIS README IS OUTDATED**
+
 **Age-structured SIRV transmission model with population ageing**
 
 Note: this is work in progress and comes with no warranty!
