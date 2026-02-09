@@ -1,4 +1,4 @@
-***[2026-02-09: NOTICE THIS README IS OUTDATED andWILL BE UPDATED]***
+***[2026-02-09: NOTICE THIS README IS OUTDATED AND WILL BE UPDATED]***
 
 **Age-structured SIRV transmission model with population ageing**
 
