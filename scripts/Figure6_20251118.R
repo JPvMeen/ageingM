@@ -16,29 +16,34 @@
 # packages
 library(ggplot2)
 library(dplyr)
+library(tidyr)
 library(readr)
 library(cowplot)
 library(grid)
+library(sysfonts)
+library(showtext)
+
+# fonts (for calligraphic ℛ)
+sysfonts::font_add_google("STIX Two Text", "STIX2")
+showtext::showtext_auto(TRUE)
 
 # sizes
 FIG_W_CM   <- 8.7        # PNAS single-column width
-FIG_ASPECT <- 1.0        # default aspect
-BASE_PT    <- 9          # base font size (pt)
-BASE_FAM   <- "CMUSerif" # or other serif
+FIG_ASPECT <- 1.2        # 2×2 panels + legend
+BASE_PT    <- 9*2          # base font size (pt)
+BASE_FAM   <- "CMUSerif" # main serif font
 
 cm_to_in <- function(x) x / 2.54
 
-# simple scientific format (if needed)
+# simple scientific format (if needed elsewhere)
 sci_fmt <- function(x) {
   fmt <- format(x, scientific = TRUE)
   gsub("e\\+0?", "e", fmt)
 }
 
-# global theme (white backgrounds, as in other figs)
+# global theme
 theme_pub <- theme_minimal(base_size = BASE_PT, base_family = BASE_FAM) +
   theme(
-    panel.background = element_rect(fill = "white", colour = NA),
-    plot.background  = element_rect(fill = "white", colour = NA),
     panel.grid.minor = element_blank(),
     panel.grid.major = element_line(linewidth = 0.25),
     axis.ticks       = element_line(linewidth = 0.25),
@@ -54,7 +59,7 @@ update_geom_defaults("line",    list(linewidth = 0.4))
 update_geom_defaults("segment", list(linewidth = 0.4))
 update_geom_defaults("point",   list(size = 1.4))
 
-# pdf saver (PNAS style, 300 dpi, cairo_pdf)
+# pdf saver (PNAS style)
 save_pdf <- function(plot, file_pdf,
                      width_cm = FIG_W_CM,
                      aspect   = FIG_ASPECT,
@@ -74,98 +79,151 @@ save_pdf <- function(plot, file_pdf,
   message("Wrote: ", file_pdf)
 }
 
-#########################################
-# Figure S1. Age-specific contact matrix
-#########################################
+##########################################
+# Figure 5. Influenza mortality heatmaps #
+##########################################
 
-# import and make contact matrix
-contact_matrix_name <- "./data/contact_matrix_data_120.txt"
-contact_data <- readr::read_delim(contact_matrix_name,
-                                  delim = "\t",
-                                  show_col_types = FALSE)
+# mortality results for influenza A
+df_mort <- read_csv("output/mortality_influenza_2050_v50_f005_20261002.csv") %>%
+#df_mort <- read_csv("./data/mortality_influenza_2025_f005_20251215.csv") %>%
+  rename(vac_start = first_age, mortality_abs = total_mortality) %>% #mean_age_infection
+  filter(vac_start >= 40)
 
-# filter data (0–119)
-filtered_data <- contact_data %>%
-  filter(part_age < 120, cont_age < 120)
-
-# create and fill matrix
-age_intervals <- 120
-contact_matrix <- matrix(0, nrow = age_intervals, ncol = age_intervals)
-
-for (i in seq_len(nrow(filtered_data))) {
-  part_idx <- as.integer(filtered_data$part_age[i]) + 1
-  cont_idx <- as.integer(filtered_data$cont_age[i]) + 1
-  contact_matrix[part_idx, cont_idx] <- filtered_data$c[i]
+# prep function (relative mortality)
+prep_for_plot_nu <- function(df, value_col) {
+  keep_imm <- c(5, 2, 1, 0.5)   # vaccine-induced immunity (years)
+  
+  df %>%
+    mutate(
+      R0            = as.numeric(R0),
+      vac_start_num = as.numeric(vac_start),
+      imm_years     = as.numeric(nu_duration_years),
+      is_no_vacc    = vac_start_num >= 130
+    ) %>%
+    filter(imm_years %in% keep_imm) %>%
+    group_by(imm_years, R0) %>%
+    mutate(
+      baseline = if (any(is_no_vacc)) .data[[value_col]][which(is_no_vacc)[1]] else NA_real_
+    ) %>%
+    ungroup() %>%
+    filter(!is_no_vacc, dplyr::between(vac_start_num, 0, 100)) %>%
+    tidyr::drop_na(baseline) %>%
+    mutate(
+      rel       = .data[[value_col]] / baseline,
+      R0_factor = factor(sprintf("%g", R0),
+                         levels = sprintf("%g", sort(unique(R0)))),
+      imm_label = factor(paste0("Immunity: ", imm_years, " yr"),
+                         levels = paste0("Immunity: ", rev(keep_imm), " yr"))
+    )
 }
 
-# symmetrise the matrix
-contact_matrix <- (contact_matrix + t(contact_matrix)) / 2
+mortality_df <- prep_for_plot_nu(df_mort, "mortality_abs")
 
-# normalise so dominant eigenvalue is 1
-eig <- eigen(contact_matrix)
-dominant_eigenvalue <- max(Re(eig$values))
-contact_matrix <- contact_matrix / dominant_eigenvalue
+# single-panel function
+panel_plot_factor <- function(df_sub,
+                              inset_xy = c(0.96, 0.965),
+                              bar_w_cm = 0.24,
+                              bar_h_cm = 1.10) {
+  stopifnot(is.factor(df_sub$R0_factor))
+  
+  r0_keep   <- c(1.5, 2, 3, 4, 5)
+  r0_breaks <- sprintf("%g", r0_keep)
+  
+  rel_min <- min(df_sub$rel, na.rm = TRUE)
+  rel_max <- max(df_sub$rel, na.rm = TRUE)
+  brk_num <- unique(c(rel_min, if (rel_min < 1 && rel_max > 1) 1, rel_max))
+  fmt     <- function(x) formatC(x, format = "f", digits = 2, drop0trailing = TRUE)
+  
+  ggplot(df_sub, aes(x = R0_factor, y = vac_start_num, fill = rel)) +
+    geom_raster(interpolate = TRUE) +
+    scale_fill_gradient2(
+      low = "#56B4E9", mid = "white", high = "red", #  "#E69F00"
+      midpoint = 1, limits = c(rel_min, rel_max),
+      breaks = brk_num, labels = fmt(brk_num), name = NULL
+    ) +
+    scale_x_discrete(
+      breaks = r0_breaks,
+      labels = r0_breaks,
+      limits = r0_breaks,
+      expand = c(0, 0),
+      drop   = FALSE
+    ) +
+    scale_y_continuous(
+      breaks = seq(40, 100, 10),
+      limits = c(40, 100),
+      expand = c(0, 0),
+      name   = "First vaccination (yr)"
+    ) +
+    labs(
+      x     = "\u211B\u2080",  # calligraphic R0 via STIX2
+      title = as.character(unique(df_sub$imm_label)[1])
+    ) +
+    theme_bw(base_size = BASE_PT, base_family = BASE_FAM) +
+    theme(
+      axis.text        = element_text(size = BASE_PT - 1),
+      axis.title.x     = element_text(
+        size   = BASE_PT,
+        margin = margin(t = 4),
+        family = "STIX2"         
+      ),
+      axis.title.y     = element_text(
+        size   = BASE_PT,
+        margin = margin(t = 2, r = 4, b = 2, l = 2)  
+      ),
+      plot.title       = element_text(face = "bold", hjust = 0, size = BASE_PT + 1,
+                                      margin = margin(t = 3, r = 4, b = 2)),
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(linewidth = 0.3),
+      aspect.ratio     = 1,
+      legend.position      = inset_xy,
+      legend.justification = c(1, 1),
+      legend.background    = element_rect(fill = "white", colour = "grey80"),
+      legend.text          = element_text(size = BASE_PT - 5),
+      plot.margin          = margin(t = 4, r = 10, b = 4, l = 4)
+    ) +
+    guides(fill = guide_colorbar(
+      title = NULL, ticks = TRUE, label = TRUE,
+      barwidth  = unit(bar_w_cm, "cm"),
+      barheight = unit(bar_h_cm, "cm")
+    )) +
+    coord_cartesian(clip = "off")
+}
 
-# log-transform (avoid -Inf)
-log_contact_matrix <- log(contact_matrix)
-log_contact_matrix[!is.finite(log_contact_matrix)] <- NA_real_
+# choose immunity durations
+imm_levels <- c(0.5, 1.0, 2.0, 5.0)
 
-# prepare data for ggplot, map indices -> ages (0–119)
-heatmap_data <- expand.grid(
-  i = seq_len(age_intervals),
-  j = seq_len(age_intervals)
-) %>%
-  mutate(
-    age_x       = i - 1,
-    age_y       = j - 1,
-    log_contact = as.vector(log_contact_matrix)
-  )
+get_panel <- function(y) {
+  panel_plot_factor(dplyr::filter(mortality_df, imm_years == y))
+}
 
-# colour limits
-z_min <- min(heatmap_data$log_contact, na.rm = TRUE)
-z_max <- max(heatmap_data$log_contact, na.rm = TRUE)
+pA <- get_panel(0.5)   # top-left
+pB <- get_panel(1.0)   # top-right
+pC <- get_panel(2.0)   # bottom-left
+pD <- get_panel(5.0)   # bottom-right
 
-heatmap_plot <- ggplot(heatmap_data, aes(x = age_x, y = age_y, fill = log_contact)) +
-  geom_tile() +
-  scale_fill_gradientn(
-    colours = c("#56B4E9"," white", "red"), #  "#E69F00"),
-    limits  = c(z_min, z_max),
-    name    = "log C(a, a')"
-  ) +
-  scale_x_continuous(
-    "Age (yr)",
-    limits = c(0, 120),
-    breaks = seq(0, 120, 20),
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    "Age (yr)",
-    limits = c(0, 120),
-    breaks = seq(0, 120, 20),
-    expand = c(0, 0)
-  ) +
-  coord_fixed() +
-  labs(title = "Person-to-person contact rates") +
-  theme_bw(base_size = BASE_PT, base_family = BASE_FAM) +
-  theme(
-    panel.background = element_rect(fill = "white", colour = NA),
-    plot.background  = element_rect(fill = "white", colour = NA),
-    panel.grid       = element_blank(),
-    axis.title       = element_text(size = BASE_PT),
-    axis.text        = element_text(size = BASE_PT - 1),
-    plot.title       = element_text(hjust = 0.5, size = BASE_PT + 1),
-    legend.position  = "bottom",
-    legend.title     = element_text(size = BASE_PT),
-    legend.text      = element_text(size = BASE_PT - 1),
-    plot.margin      = margin(6, 6, 6, 6)
-  )
+# remove redundant axis titles
+remove_x <- function(p) p + theme(axis.title.x = element_blank())
+remove_y <- function(p) p + theme(axis.title.y = element_blank())
 
-heatmap_plot
+pA <- remove_x(pA)
+pB <- remove_x(remove_y(pB))
+pD <- remove_y(pD)
 
-# save as single-column figure
+# assemble 2×2 layout
+figure_5 <- cowplot::plot_grid(
+  pA, pB, pC, pD,
+  ncol = 2, nrow = 2,
+  labels = c("A","B","C","D"),
+  label_fontface = "bold", label_size = BASE_PT + 1,
+  label_x = 0.02, label_y = 0.98, align = "hv"
+)
+
+figure_5
+
+# save as PNAS-style single-column square figure
 save_pdf(
-  plot     = heatmap_plot,
+  plot     = figure_5,
   file_pdf = "figures/figure6.pdf",
-  width_cm = FIG_W_CM,
+  width_cm = 20,
   aspect   = 1.0
 )

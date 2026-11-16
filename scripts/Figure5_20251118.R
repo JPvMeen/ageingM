@@ -29,9 +29,9 @@ showtext::showtext_auto(TRUE)
 
 # sizes
 FIG_W_CM   <- 8.7        # PNAS single-column width
-FIG_ASPECT <- 1.0        # default aspect
-BASE_PT    <- 9          # base font size (pt)
-BASE_FAM   <- "CMUSerif" # main serif
+FIG_ASPECT <- 1.2        # 2×2 panels + legend
+BASE_PT    <- 9*2          # base font size (pt)
+BASE_FAM   <- "CMUSerif" # main serif font
 
 cm_to_in <- function(x) x / 2.54
 
@@ -84,7 +84,7 @@ save_pdf <- function(plot, file_pdf,
 ##########################################
 
 # mortality results for influenza A
-df_mort <- read_csv("./data/mortality_influenza_2025_v30_f005_20251223.csv") %>%
+df_mort <- read_csv("output/mortality_influenza_2025_v50_f005_coverage80_20261020.csv") %>%
 #df_mort <- read_csv("./data/mortality_influenza_2025_f005_20251215.csv") %>%
   rename(vac_start = first_age, mortality_abs = total_mortality) %>% #mean_age_infection
   filter(vac_start >= 40)
@@ -144,6 +144,8 @@ panel_plot_factor <- function(df_sub,
     scale_x_discrete(
       breaks = r0_breaks,
       labels = r0_breaks,
+      limits = r0_breaks,
+      expand = c(0, 0),
       drop   = FALSE
     ) +
     scale_y_continuous(
@@ -222,6 +224,6 @@ figure_5
 save_pdf(
   plot     = figure_5,
   file_pdf = "figures/figure5b.pdf",
-  width_cm = FIG_W_CM,
+  width_cm = 20,
   aspect   = 1.0
 )

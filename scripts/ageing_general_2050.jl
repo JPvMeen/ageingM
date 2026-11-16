@@ -1,17 +1,37 @@
-# packages
-using DifferentialEquations
-using DiffEqCallbacks 
+import Pkg
+
+# Project root: one level above this script's scripts/ directory
+Pkg.activate(joinpath(@__DIR__, ".."))
+
+packages = [
+    "DifferentialEquations",
+    "DiffEqCallbacks",
+    "CSV",
+    "DataFrames",
+    "Plots",
+    "QuadGK",
+    "Distributions",
+    "ThreadsX",
+    "ProgressMeter",
+]
+
+# Install missing external packages
+missing_packages = filter(name -> isnothing(Base.find_package(name)), packages)
+
+if !isempty(missing_packages)
+    Pkg.add(missing_packages)
+end
+
+for name in packages
+    @eval using $(Symbol(name))
+end
+
+# Built-in modules: no installation needed
 using LinearAlgebra
-using CSV
-using DataFrames
-using Plots
-using QuadGK
-using Distributions
+using LinearAlgebra: BLAS
 using Dates
-using NoSleep                                               # prevent sleep, my version does this automatically (no call needed)
 using Base.Threads
-using ThreadsX
-using ProgressMeter
+
 BLAS.set_num_threads(1)                                     # no matrix multithreading
 
 # print number of threads
@@ -19,11 +39,15 @@ println("Julia threads : ", Threads.nthreads())
 println("BLAS threads. :  ", BLAS.get_num_threads())
 
 # directories
-base_dir    = @__DIR__
+base_dir    = normpath(joinpath(@__DIR__, ".."))
 data_dir    = joinpath(base_dir, "data")
 figures_dir = joinpath(base_dir, "figures")
 output_dir  = joinpath(base_dir, "output")
  
+# Create destination folders if needed
+mkpath(figures_dir)
+mkpath(output_dir)
+
 # time-age parameters
 tmin, tmax  = 0.0, 200.0                                   # simulation duration (years)
 twarm       = 200.0                                        # warmup period (years) - this impacts YLL
