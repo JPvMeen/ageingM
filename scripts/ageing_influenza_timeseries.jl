@@ -1,5 +1,5 @@
-# One influenza simulation for Figure 4 (independent of the parameter sweeps).
-# Change parameters and output_tag to generate a different scenario.
+# Generate CSV data for Figure 4; plotting is done separately in Figure4_20251118.R.
+# Change these parameters and output_tag to generate a different scenario.
 coverage_campaign = 0.80
 include(joinpath(@__DIR__, "influenza_model.jl"))
 
@@ -14,7 +14,9 @@ output_tag      = "figure4_baseline"
 ν_single = 1.0 / nu_duration
 
 mkpath(output_dir)
-mkpath(figures_dir)
+# First vaccination age in file names; non-integer ages use 'p' as decimal separator.
+fva_age = isinteger(first_age_s) ? string(Int(first_age_s)) : replace(string(first_age_s), "." => "p")
+fva_tag = "fva$(fva_age)"
 
 mask_s = age_mask_from_first(age_points, first_age_s, end_age)
 vac_s  = VacSched(mask_s, rate_in_window, camp_width, camp_phase, t_vac_start)
@@ -76,7 +78,7 @@ df_time = DataFrame(
 )
 
 CSV.write(joinpath(output_dir,
-          "time_series_$(output_tag).csv"),
+          "time_series_$(output_tag)_$(fva_tag).csv"),
           df_time)
 
 # take same time points (last 100 years, 20/year)
@@ -97,81 +99,5 @@ for (j, age) in enumerate(ages_year)
 end
 
 CSV.write(joinpath(output_dir,
-          "time_age_$(output_tag).csv"),
+          "time_age_$(output_tag)_$(fva_tag).csv"),
           df_I)
-
-plt1 = plot(t, tot_S, label="S")
-plot!(plt1, t, tot_I, label="I")
-plot!(plt1, t, tot_R, label="R")
-plot!(plt1, t, tot_V, label="V")
-plot!(plt1, t, tot_N, label="N")
-xlabel!(plt1, "time (years)")
-ylabel!(plt1, "number")
-savefig(plt1, joinpath(figures_dir, "compartments_over_time_$(output_tag).pdf"))
-
-# total mortality over time (after transient)
-mort_total = vec(sum(M_mat, dims=2))
-sel = t .>= 20.0
-plt2 = plot(t[sel], mort_total[sel], label="mortality")
-xlabel!(plt2, "time (years)")
-ylabel!(plt2, "mortality incidence (per year)")
-savefig(plt2, joinpath(figures_dir, "mortality_over_time_$(output_tag).pdf"))
-
-# mean age of infection over time   
-mai_over_time = similar(t)
-I_div_N_vec   = zeros(n_age)
-FOI_vec       = zeros(n_age)
-
-for (k, tk) in enumerate(t)
-    S_k  = @view S_mat[k, :]
-    I_k  = @view I_mat[k, :]
-    R1_k = @view R1_mat[k, :]
-    V1_k = @view V1_mat[k, :]
-    R2_k = @view R2_mat[k, :]
-    V2_k = @view V2_mat[k, :]
-
-    N_k = S_k .+ I_k .+ R1_k .+ R2_k .+ V1_k .+ V2_k .+ 1e-6
-
-    @. I_div_N_vec = I_k / N_k
-    mul!(FOI_vec, contact_matrix, I_div_N_vec)
-
-    fsc = 1 + forcing_single * cos(2π * tk)
-    @. FOI_vec = β_single * fsc * FOI_vec      # λ(t,a)
-
-    weights = FOI_vec .* S_k                   # λ(t,a) S(t,a)
-    denom   = sum(weights) * da
-    if denom > 0
-        num = sum(age_points .* weights) * da
-        mai_over_time[k] = num / denom
-    else
-        mai_over_time[k] = NaN
-    end
-end
-
-pltMAI = plot(t, mai_over_time, label="mean age of infection")
-xlabel!(pltMAI, "time (years)")
-ylabel!(pltMAI, "mean age of infection (years)")
-savefig(pltMAI, joinpath(figures_dir, "mean_age_infection_over_time_$(output_tag).pdf"))
-
-# time–age heatmaps
-maxI = maximum(I_mat[end, :])
-maxM = maximum(M_mat[end, :])
-
-pltS = heatmap(t, age_points, S_mat', xlabel="time (years)", ylabel="age (years)")
-savefig(pltS, joinpath(figures_dir, "heatmap_S_$(output_tag).pdf"))
-
-pltI = heatmap(t, age_points, I_mat', xlabel="time (years)", ylabel="age (years)", clim=(0, maxI))
-savefig(pltI, joinpath(figures_dir, "heatmap_I_$(output_tag).pdf"))
-
-pltR = heatmap(t, age_points, (R1_mat .+ R2_mat)', xlabel="time (years)", ylabel="age (years)")
-savefig(pltR, joinpath(figures_dir, "heatmap_R_$(output_tag).pdf"))
-
-pltV = heatmap(t, age_points, (V1_mat .+ V2_mat)', xlabel="time (years)", ylabel="age (years)")
-savefig(pltV, joinpath(figures_dir, "heatmap_V_$(output_tag).pdf"))
-
-pltM = heatmap(t, age_points, M_mat', xlabel="time (years)", ylabel="age (years)", clim=(0, maxM))
-savefig(pltM, joinpath(figures_dir, "heatmap_M_$(output_tag).pdf"))
-
-pltN = heatmap(t, age_points, (S_mat .+ I_mat .+ R1_mat .+ R2_mat .+ V1_mat .+ V2_mat)', xlabel="time (years)", ylabel="age (years)")
-savefig(pltN, joinpath(figures_dir, "heatmap_N_$(output_tag).pdf"))
- 
