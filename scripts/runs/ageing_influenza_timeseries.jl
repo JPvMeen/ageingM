@@ -1,12 +1,12 @@
-# Generate CSV data for Figure 4; plotting is done separately in Figure4_20251118.R.
+# Generate CSV data for Figure 4; plotting is done separately in Figure4.R.
 # Change these parameters and output_tag to generate a different scenario.
 coverage_campaign = 0.80
 include(joinpath(@__DIR__, "..", "models", "influenza_model.jl"))
 
-R0_single       = 3.0
+R0_single       = 1.5   # 3.0 baseline
 forcing_single  = 0.05
 nu_duration     = 2.0       # mean vaccine immunity duration in years
-first_age_s     = 60.0
+first_age_s     = 91.0  # 60.0 baseline
 t_vac_start     = 200.0
 output_tag      = "figure4_baseline"
 

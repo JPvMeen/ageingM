@@ -37,8 +37,7 @@ source("functions/format_PLOS.R")
 
 # mortality results for influenza A
 df_mort <- read_csv("output/mortality_influenza_2025_v50_f005_coverage30_20261020.csv") %>%
-  rename(vac_start = first_age, mortality_abs = total_mortality) %>%
-  filter(vac_start >= 40)
+  rename(vac_start = first_age, mortality_abs = total_mortality)
 
 # prep function (relative mortality)
 prep_for_plot_nu <- function(df, value_col) {
