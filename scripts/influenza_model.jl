@@ -400,13 +400,13 @@ function run_one!(β::Float64, ν::Float64, first_age::Float64, forcing::Float64
 end
 
 # Sweep includes zero seasonality, the original 5% baseline, and stronger forcing.
-function run_influenza_sweep(; forcing_vals=forcing_vals)
+function run_influenza_sweep(; forcing_values=forcing_vals)
     mkpath(output_dir)
     stamp = Dates.format(Dates.today(), "yyyymmdd")
     println("Output stamp: ", stamp)
 
     param_sets = [(β, ν, a0, forcing)
-                  for forcing in forcing_vals
+                  for forcing in forcing_values
                   for β in beta_vals
                   for ν in nu_vals
                   for a0 in first_age_range]
