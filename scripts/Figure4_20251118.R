@@ -14,63 +14,26 @@
 ################################################################################
 
 # packages
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(readr)
-library(cowplot)
-library(grid)
-library(ggrastr)
+packages <- c(
+  "ggplot2", "dplyr", "tidyr", "readr", "cowplot",
+  "grid"
+)
 
-# sizes
-FIG_W_CM   <- 8.7        # PNAS single-column width
-FIG_ASPECT <- 1.0        # default aspect
-BASE_PT    <- 9          # base font size (pt)
-BASE_FAM   <- "CMUSerif" # or other serif
-cm_to_in <- function(x) x / 2.54
+# Install only missing packages (grid comes with R).
+missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
 
-# simple scientific format
+if (length(missing) > 0L) {
+  install.packages(missing, repos = "https://cloud.r-project.org")
+}
+
+# Load all packages.
+lapply(packages, library, character.only = TRUE)
+
+source("functions/format_PLOS.R")
+
 sci_fmt <- function(x) {
   fmt <- format(x, scientific = TRUE)
   gsub("e\\+0?", "e", fmt)
-}
-
-# global theme
-theme_pub <- theme_minimal(base_size = BASE_PT, base_family = BASE_FAM) +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_line(linewidth = 0.25),
-    axis.ticks       = element_line(linewidth = 0.25),
-    axis.title       = element_text(margin = margin(t = 2, r = 2, b = 2, l = 2)),
-    plot.title       = element_text(face = "bold"),
-    plot.margin      = margin(4, 4, 4, 4),
-    aspect.ratio     = FIG_ASPECT
-  )
-theme_set(theme_pub)
-
-# geom defaults
-update_geom_defaults("line",    list(linewidth = 0.4))
-update_geom_defaults("segment", list(linewidth = 0.4))
-update_geom_defaults("point",   list(size = 1.4))
-
-# pdf saver (PNAS style)
-save_pdf <- function(plot, file_pdf,
-                     width_cm = FIG_W_CM,
-                     aspect   = FIG_ASPECT,
-                     dpi      = 300) {
-  w_in <- cm_to_in(width_cm)
-  h_in <- w_in * aspect
-  ggplot2::ggsave(
-    filename  = file_pdf,
-    plot      = plot,
-    width     = w_in,
-    height    = h_in,
-    units     = "in",
-    dpi       = dpi,
-    device    = cairo_pdf,
-    limitsize = FALSE
-  )
-  message("Wrote: ", file_pdf)
 }
 
 #################################################
@@ -79,8 +42,8 @@ save_pdf <- function(plot, file_pdf,
 
 #df_ts <- read_csv("data/time_series_influenza_2025_20251117.csv")
 #df_ta <- read_csv("data/time_age_influenza_2025_20251117.csv")
-df_ts <- read_csv("data/time_series_influenza_2025_20251222.csv")
-df_ta <- read_csv("data/time_age_influenza_2025_20251222.csv")
+df_ts <- read_csv("output/time_series_influenza_2025_coverage80_20261020.csv")
+df_ta <- read_csv("output/time_age_influenza_2025_coverage80_20261020.csv")
 
 t_ref <- 150
 
@@ -94,14 +57,6 @@ col_high   <- "red"
 col_low_w  <- "white" # "#c7e4fb"
 
 # time-series theme
-theme_time <- theme_bw(base_size = BASE_PT, base_family = BASE_FAM) +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_line(linewidth = 0.3),
-    axis.ticks       = element_line(linewidth = 0.25),
-    axis.title       = element_text(margin = margin(t = 2, r = 2, b = 2, l = 2)),
-    plot.margin      = margin(2, 10, 4, 6)
-  )
 
 remove_x_all <- theme(
   axis.title.x = element_blank(),
@@ -148,13 +103,12 @@ p_top <- ggplot() +
     x = NULL,
     y = "Number"
   ) +
-  theme_time +
+  theme_pub +
   remove_x_all +
   theme(
     legend.position      = c(0.02, 0.97),
     legend.justification = c(0, 1),
     legend.background    = element_rect(fill = "white", colour = "grey80"),
-    legend.text          = element_text(size = BASE_PT - 1),
     legend.margin        = margin(t = 1, r = 5, b = 2, l = 2),
     legend.key.width     = unit(0.6, "lines"),
     legend.key.height    = unit(0.6, "lines")
@@ -191,14 +145,16 @@ p_mid <- ggplot(df_mid, aes(x = t_rel, y = age, fill = I)) +
 #    dpi = 150   
 #  ) +
   geom_tile(width = dt * 1.02, height = da * 1.02) +
-  geom_text(
-    inherit.aes = FALSE,
-    aes(x = 98, y = 115, label = "italic(I)(t,a)"),
+  annotate(
+    "text",
+    x = 98,
+    y = 115,
+    label = "italic(I)(t,a)",
     parse = TRUE,
     family = BASE_FAM,
-    size   = 3.2,
-    hjust  = 1,
-    vjust  = 1
+    size = FONT_PT[2] / (72.27 / 25.4),
+    hjust = 1,
+    vjust = 1
   ) +
   scale_y_continuous(
     name   = "Age (yr)",
@@ -228,13 +184,12 @@ p_mid <- ggplot(df_mid, aes(x = t_rel, y = age, fill = I)) +
       label.position = "right"
     )
   ) +
-  theme_time +
+  theme_pub +
   remove_x_all +
   theme(
     legend.position      = c(0.02, 0.97),
     legend.justification = c(0, 1),
     legend.background    = element_rect(fill = "white", colour = "grey80"),
-    legend.text          = element_text(size = BASE_PT - 3)
   )
 
 # bottom panel: mortality over time
@@ -253,50 +208,40 @@ p_bottom <- ggplot(df_ts, aes(x = t_rel, y = M_inc)) +
     x = "Time (yr)",
     y = expression(plain(Mort) ~ plain("(") * yr^{-1} * plain(")"))
   ) +
-  theme_time +
+  theme_pub +
   theme(
     legend.position = "none",
     plot.margin     = margin(t = 6, r = 10, b = 2, l = 6)
   )
 
-# combine panels
-width_cm  <- FIG_W_CM
-height_cm <- FIG_W_CM * 1.05
-aspect_three <- height_cm / width_cm
-
 figure_4 <- cowplot::plot_grid(
   p_top,
   p_mid,
   p_bottom,
-  ncol           = 1,
-  labels         = c("A", "B", "C"),
-  label_fontface = "bold",
-  label_size     = BASE_PT + 1,
-  label_x        = 0.015,
-  label_y        = 0.985,
-  align          = "v",
-  axis           = "l",
-  rel_heights    = c(1, 1, 1)
+  ncol             = 1,
+  labels           = c("A", "B", "C"),
+  label_fontface   = "bold",
+  label_fontfamily = BASE_FAM,
+  label_size       = FONT_PT[4],
+  label_x          = 0.015,
+  label_y          = 0.985,
+  align            = "v",
+  axis             = "l",
+  rel_heights      = c(1, 1, 1)
 )
 
 figure_4
 
-#library(ragg)  # optional since you used ragg::agg_png, but fine
-save_png <- function(plot, file_png,
-                     width_cm = FIG_W_CM,
-                     aspect   = 1.05,
-                     dpi      = 160) {
-  w_in <- width_cm / 2.54
-  h_in <- w_in * aspect
-  ragg::agg_png(file_png, width = w_in, height = h_in, units = "in", res = dpi)
-  print(plot)
-  dev.off()
-}
-save_png(figure_4, "figures/figure4_overleaf.png", width_cm = FIG_W_CM, aspect = aspect_three, dpi = 160)
+# Same 2-point outer white border as Figure 2
+figure_export <- ggplotGrob(figure_4)
+figure_export <- gtable::gtable_add_rows(figure_export, unit(2, "pt"), pos = 0)
+figure_export <- gtable::gtable_add_rows(figure_export, unit(2, "pt"), pos = -1)
+figure_export <- gtable::gtable_add_cols(figure_export, unit(2, "pt"), pos = 0)
+figure_export <- gtable::gtable_add_cols(figure_export, unit(2, "pt"), pos = -1)
 
-save_pdf(
-  plot     = figure_4,
-  file_pdf = "figures/figure4_150dpi.pdf",
-  width_cm = width_cm,
-  aspect   = aspect_three
+dir.create("figures", showWarnings = FALSE, recursive = TRUE)
+
+save_plos(
+  plot     = figure_export,
+  filename = "figures/figure4"
 )

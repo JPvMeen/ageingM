@@ -1,29 +1,49 @@
-using DifferentialEquations
-using DiffEqCallbacks
+import Pkg
+
+# Project root: one level above this script's scripts/ directory
+Pkg.activate(joinpath(@__DIR__, ".."))
+
+packages = [
+    "DifferentialEquations",
+    "DiffEqCallbacks",
+    "CSV",
+    "DataFrames",
+    "Plots",
+    "QuadGK",
+    "Distributions",
+    "ThreadsX",
+    "ProgressMeter",
+    "Random",
+]
+
+# Install missing external packages
+missing_packages = filter(name -> isnothing(Base.find_package(name)), packages)
+
+if !isempty(missing_packages)
+    Pkg.add(missing_packages)
+end
+
+for name in packages
+    @eval using $(Symbol(name))
+end
+
+# Built-in modules: no installation needed
 using LinearAlgebra
-using CSV
-using DataFrames
-using QuadGK
-using Distributions
-using Random
+using LinearAlgebra: BLAS
 using Dates
-#using Base.Threads
-using ThreadsX
-using ProgressMeter
-using Plots
-BLAS.set_num_threads(1)
+using Base.Threads
 
 println("Julia threads : ", Threads.nthreads())
 println("BLAS threads  : ", BLAS.get_num_threads())
 
 # directories 
-base_dir    = @__DIR__
+base_dir    = normpath(joinpath(@__DIR__, ".."))
 data_dir    = joinpath(base_dir, "data")
 figures_dir = joinpath(base_dir, "figures")
 output_dir  = joinpath(base_dir, "output")
 
 # time-age grid 
-tmin, tmax  = 0.0, 200.0  # 200.0 for sweeps 
+tmin, tmax  = 0.0, 250.0  # 200.0 for sweeps, 250 for runs 
 amin, amax  = 0.0, 120.0
 da          = 0.1
 age_points  = collect(amin:da:(amax-da))
@@ -39,7 +59,7 @@ R0_vals   = [1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4, 4.25, 4.5, 4.
 beta_vals = gamma .* R0_vals
 
 # influenza-style vaccination
-coverage_campaign = 0.30        # 50% per summer campaign
+coverage_campaign = 0.80        # 80% per summer campaign
 camp_phase        = 10/12.0     # campaigns start in October
 camp_width        = 2.0/12.0    # 2 month window (October–November)
 rate_in_window    = -log(1 - coverage_campaign) / camp_width
@@ -98,8 +118,8 @@ ifr(age; a=1.86e-5, b=0.07, c=1.86e-5) = a*exp(b*age) - c
 # background mortality 
 @inline function mortality(t::Float64, age::Float64, a0::Float64, a1::Float64,
                            a2::Float64, twarmup::Float64)
-    #logm = t < twarmup ? (a0 + a1*5.0 + a2*age) : (a0 + a1*5.0 + a1*(t - twarmup) + a2*age)
-    logm = t < twarmup ? (a0 + a1*30.0 + a2*age) : (a0 + a1*30.0 + a1*(t - twarmup) + a2*age) # 2050
+    logm = t < twarmup ? (a0 + a1*5.0 + a2*age) : (a0 + a1*5.0 + a1*(t - twarmup) + a2*age) #2025
+    #logm = t < twarmup ? (a0 + a1*30.0 + a2*age) : (a0 + a1*30.0 + a1*(t - twarmup) + a2*age) # 2050
     return 10.0^logm
 end
 
@@ -378,6 +398,7 @@ end
 
 # time stamp
 stamp = Dates.format(Dates.today(), "yyyymmdd")
+println("Output stamp: ", stamp)
 
 # parameter sweep
 param_sets = [(β, ν, a0)
@@ -399,9 +420,9 @@ df_mort = select(df, :beta, :R0, :nu, :nu_duration_years, :first_age, :total_mor
 df_yll  = select(df, :beta, :R0, :nu, :nu_duration_years, :first_age, :total_yll)
 #df_mai  = select(df, :beta, :R0, :nu, :nu_duration_years, :first_age, :mean_age_infection)
 
-CSV.write(joinpath(output_dir, "mortality_influenza_2050_v50_f005_" * stamp * ".csv"), df_mort)
-CSV.write(joinpath(output_dir, "yll_influenza_2050_v50_f005_" * stamp * ".csv"), df_yll)
-# CSV.write(joinpath(output_dir, "mai_influenza_2025_v50_f005_" * stamp * ".csv"), df_mai)
+CSV.write(joinpath(output_dir, "mortality_influenza_2025_v50_f005_coverage80_" * stamp * ".csv"), df_mort)
+CSV.write(joinpath(output_dir, "yll_influenza_2025_v50_f005_coverage80_" * stamp * ".csv"), df_yll)
+# CSV.write(joinpath(output_dir, "mai_influenza_2025_v50_f005_coverage80_" * stamp * ".csv"), df_mai)
 
 println("Finished sweeps: ", nrow(df), " runs.")
 
@@ -482,7 +503,7 @@ df_time = DataFrame(
 )
 
 CSV.write(joinpath(output_dir,
-          "time_series_influenza_2025_" * stamp * ".csv"),
+          "time_series_influenza_2025_coverage80_" * stamp * ".csv"),
           df_time)
 
 # take same time points (last 100 years, 20/year)
@@ -503,7 +524,7 @@ for (j, age) in enumerate(ages_year)
 end
 
 CSV.write(joinpath(output_dir,
-          "time_age_influenza_2025_" * stamp * ".csv"),
+          "time_age_influenza_2025_coverage80_" * stamp * ".csv"),
           df_I)
 
 plt1 = plot(t, tot_S, label="S")

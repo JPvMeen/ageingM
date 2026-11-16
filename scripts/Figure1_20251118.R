@@ -14,73 +14,26 @@
 ################################################################################
 
 # packages
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(readr)
-library(cowplot)
-library(grid)
+packages <- c("ggplot2", "dplyr", "tidyr", "readr", "cowplot", "grid", "readxl")
 
-# sizes
-FIG_W_CM   <- 8.7        # PNAS single-column width
-FIG_ASPECT <- 1.0        # default aspect
-BASE_PT    <- 9          # base font size (pt)
-BASE_FAM   <- "CMUSerif" # or other serif
+# Install only missing packages (grid comes with R).
+missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
 
-cm_to_in <- function(x) x / 2.54
-
-# simple scientific format (if needed)
-sci_fmt <- function(x) {
-  fmt <- format(x, scientific = TRUE)
-  gsub("e\\+0?", "e", fmt)
+if (length(missing) > 0L) {
+  install.packages(missing, repos = "https://cloud.r-project.org")
 }
 
-# global theme
-theme_pub <- theme_minimal(base_size = BASE_PT, base_family = BASE_FAM) +
-  theme(
-    panel.background = element_rect(fill = "white", colour = NA),
-    plot.background  = element_rect(fill = "white", colour = NA),
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_line(linewidth = 0.25),
-    axis.ticks       = element_line(linewidth = 0.25),
-    axis.title       = element_text(margin = margin(t = 2, r = 2, b = 2, l = 2)),
-    plot.title       = element_text(face = "bold"),
-    plot.margin      = margin(4, 4, 4, 4),
-    aspect.ratio     = FIG_ASPECT
-  )
-theme_set(theme_pub)
+# Load all packages.
+lapply(packages, library, character.only = TRUE)
 
-# geom defaults
-update_geom_defaults("line",    list(linewidth = 0.4))
-update_geom_defaults("segment", list(linewidth = 0.4))
-update_geom_defaults("point",   list(size = 1.4))
-
-# pdf saver (PNAS style, Cairo backend)
-save_pdf <- function(plot, file_pdf,
-                     width_cm = FIG_W_CM,
-                     aspect   = FIG_ASPECT,
-                     dpi      = 300) {
-  w_in <- cm_to_in(width_cm)
-  h_in <- w_in * aspect
-  ggplot2::ggsave(
-    filename  = file_pdf,
-    plot      = plot,
-    width     = w_in,
-    height    = h_in,
-    units     = "in",
-    dpi       = dpi,
-    device    = cairo_pdf,
-    limitsize = FALSE
-  )
-  message("Wrote: ", file_pdf)
-}
+source("functions/format_PLOS.R")
 
 ##########################################
 # Data: AG2022 mortality (qx male/female)
 ##########################################
 
-qx_female_wide <- read_csv("./data/qxfemale2022.csv")
-qx_male_wide   <- read_csv("./data/qxmale2022.csv")
+qx_female_wide <- read_excel("./data/AG2022DefinitiefGevalideerd.xlsx", sheet = "qx vrouwen 2022")
+qx_male_wide   <- read_excel("./data/AG2022DefinitiefGevalideerd.xlsx", sheet = "qx mannen 2022")
 
 qx_female_long <- qx_female_wide %>%
   pivot_longer(!x, names_to = "year", values_to = "rate") %>%
@@ -142,11 +95,14 @@ color_scale <- scale_colour_gradientn(
   breaks = c(2020, 2060, 2100),
   labels = c("2020", "2060", "2100"),
   name   = "Year",
-  guide  = guide_colorbar(
-    title.position = "top", title.hjust = 0.5,
-    barwidth = unit(160, "pt"),
-    barheight = unit(6,  "pt"),
-    ticks = FALSE, label.position = "bottom"
+  guide = guide_colorbar(
+    title.position = "top",
+    title.hjust    = 0.5,
+    direction      = "vertical",
+    barwidth       = unit(10, "pt"),
+    barheight      = unit(100, "pt"),
+    ticks          = FALSE,
+    label.position = "right"
   )
 )
 
@@ -172,8 +128,9 @@ mortality_plot <- ggplot(qx_overall %>% filter(year <= 2100)) +
     breaks = -5:0
   ) +
   labs(y = ylab_mort_expr, title = "Mortality") +
-  theme_bw(base_size = BASE_PT) +
+  theme_pub +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", colour = NA),
     plot.background  = element_rect(fill = "white", colour = NA),
     panel.grid.minor = element_blank(),
@@ -196,72 +153,186 @@ survival_plot <- ggplot(combined_data, aes(age, survival_prob, group = year, col
     breaks = seq(0, 1, by = 0.2)
   ) +
   labs(y = ylab_surv_expr, title = "Survival") +
-  theme_bw(base_size = BASE_PT) +
+  theme_pub +
   theme(
+    aspect.ratio = 1,
     panel.background = element_rect(fill = "white", colour = NA),
     plot.background  = element_rect(fill = "white", colour = NA),
     panel.grid.minor = element_blank(),
     panel.grid.major = element_line(linewidth = 0.3),
-    legend.position  = "none",
+    legend.position  = "right",
+    legend.title     = element_text(size = FONT_PT[5]),
+    legend.text      = element_text(size = FONT_PT[4]),
     plot.margin      = margin(8, 8, 6, 8)
   )
 
-# legend helper
-get_legend <- function(plot) {
-  g <- ggplotGrob(plot)
-  g$grobs[[which(sapply(g$grobs, function(x) x$name) == "guide-box")]]
-}
+# Panel C: infection/case fatality rate 
+# IFR COVID, Levin et al., 2020 https://pmc.ncbi.nlm.nih.gov/articles/PMC7721859/#_ad93_
+ifr_data_covid_loglinear <- data.frame(age = 0:120, pathogen_and_fatality_type = "SARS-CoV-2, IFR") %>%
+  mutate(
+    log10_ifr = (-3.27 + 0.0524 * age)-log10(100) #convert from % to proportion
+  ) 
 
-# legend grob
-legend <- get_legend(
-  ggplot(combined_data, aes(age, log_predicted_rate, colour = year)) +
-    geom_line(alpha = 0.2) +
-    color_scale +
-    theme_minimal(base_size = BASE_PT) +
-    theme(
-      legend.position   = "bottom",
-      legend.title      = element_text(margin = margin(b = 3)),
-      legend.key.height = unit(6, "pt"),
-      legend.key.width  = unit(18, "pt"),
-      legend.margin     = margin(0, 0, 0, 0),
-      legend.box.margin = margin(0, 0, 0, 0)
+# IFR COVID, O'Driscoll et al. 2020 https://www.nature.com/articles/s41586-020-2918-0
+ifr_data_covid <- data.frame(
+  age_group_min = seq(0, 80, by = 5),
+  ifr_percent = c(
+    0.003, 0.001, 0.001, 0.003, 0.006,
+    0.013, 0.024, 0.040, 0.075, 0.121,
+    0.207, 0.323, 0.456, 1.075, 1.674,
+    3.203, 8.292
+  ),
+  ifr_lower_percent = c(
+    0.002, 0.000, 0.001, 0.002, 0.005,
+    0.011, 0.021, 0.034, 0.064, 0.104,
+    0.177, 0.277, 0.392, 0.921, 1.435,
+    2.744, 7.105
+  ),
+  ifr_upper_percent = c(
+    0.003, 0.001, 0.001, 0.003, 0.008,
+    0.015, 0.028, 0.047, 0.087, 0.140,
+    0.239, 0.373, 0.527, 1.244, 1.937,
+    3.705, 9.593
+  )
+) %>%
+  mutate(
+    age_group_max = lead(age_group_min, default = Inf),
+    representative_age = if_else(
+      is.infinite(age_group_max),
+      82.5,
+      (age_group_min + age_group_max) / 2
+    ),
+    ifr = ifr_percent / 100,
+    log10_ifr = log10(ifr)
+  )
+
+# CFR Influenza, McDonald et al., 2023 https://onlinelibrary.wiley.com/doi/10.1111/irv.13146
+influenza_age_data <- data.frame(
+  age_group_min = c(
+    0, 1, 5, 10, 15, 20, 25, 30, 35, 40,
+    45, 50, 55, 60, 65, 70, 75, 80, 85
+  ),
+    age_group_max = c(
+    1, 5, 10, 15, 20, 25, 30, 35, 40, 45,
+    50, 55, 60, 65, 70, 75, 80, 85, Inf
+  ),
+  symptomatic_cases = c(
+    104300, 431200, 392300, 417500, 250000,
+    261200, 262700, 251300, 249700, 277200,
+    310200, 306500, 282100, 256400, 203000,
+    152300, 111900, 79540, 70680
+  ),
+  influenza_deaths = c(
+    9, 8, 4, 4, 4, 5, 5, 5, 11, 17,
+    23, 23, 81, 100, 220, 418, 546, 1105, 2999
+  )
+)
+
+cfr_data_influenza <- influenza_age_data %>%
+  arrange(age_group_min) %>%
+  mutate(
+    age_group_max = lead(age_group_min, default = Inf),
+    representative_age = if_else(
+      is.infinite(age_group_max),
+      87.5,
+      (age_group_min + age_group_max) / 2
+    ),
+    cfr = influenza_deaths / symptomatic_cases,
+    log_cfr = log10(cfr)
+  )
+
+grDevices::palette.colors(palette = "Okabe-Ito")
+
+pathogen_fatality_plot <- ggplot() +
+  geom_line(data = ifr_data_covid_loglinear, aes(x = age, y=log10_ifr, color = "SARS-CoV-2 (Levin), IFR"), linewidth = 1, alpha = 0.9) +
+    geom_point(data = ifr_data_covid, aes(x=representative_age, y=log10_ifr, color = "SARS-CoV-2 (O'Driscoll), IFR"), size = 1, alpha = 0.9) +
+  geom_line(data = ifr_data_covid, aes(x=representative_age, y=log10_ifr, color = "SARS-CoV-2 (O'Driscoll), IFR"), linewidth = .5, alpha = 0.9) +
+  geom_point(data = cfr_data_influenza, aes(x=representative_age, y=log_cfr, color = "Influenza, CFR"), size = 1, alpha = 0.9) +
+  geom_line(data = cfr_data_influenza, aes(x=representative_age, y=log_cfr, color = "Influenza, CFR"), linewidth = .5, alpha = 0.9) +
+  scale_x_continuous(
+    "Age (years)",
+    limits = c(0, 120), expand = c(0, 0),
+    breaks = c(0, 25, 50, 75, 100, 120)
+  ) +
+  scale_y_continuous(
+    expression(log[10](FR)),
+    limits = c(-5.5, 0), expand = c(0, 0),
+    breaks = seq(-5.5, 0, by = 0.5)
+  ) +
+  scale_color_manual(
+    values = c(
+      "SARS-CoV-2 (Levin), IFR" = "#0072B2",
+      "SARS-CoV-2 (O'Driscoll), IFR" = "#56B4E9",
+      "Influenza, CFR" = "#009E73"
+    ),
+    name   = "Pathogen",
+    guide  = guide_legend(
+      title.position = "top",
+      title.hjust    = 0.5,
+      ncol = 1,
+      title.theme    = element_text(size = FONT_PT[2]),
+      label.position = "right",
+      label.theme    = element_text(size = FONT_PT[1])
     )
-)
+  ) +
+  labs(title = "Fatality rate") +
+  theme_pub +
+  theme(
+    aspect.ratio = 1,
+    panel.background = element_rect(fill = "white", colour = NA),
+    plot.background  = element_rect(fill = "white", colour = NA),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(linewidth = 0.3),
+    legend.position = "right",
+    legend.justification = "center",
+    plot.margin      = margin(8, 8, 6, 8)
+  )
 
-# spacer between panels
-spacer <- ggplot() + theme_void()
 
-# horizontal row with A/B labels and small gap
+# Top row: A has no legend; B carries the year legend for both panels.
 plots_row <- cowplot::plot_grid(
-  mortality_plot + theme(plot.margin = margin(8, 2, 6, 2)),
-  spacer,
-  survival_plot  + theme(plot.margin = margin(8, 2, 6, 2)),
-  ncol        = 3,
-  rel_widths  = c(1.05, 0.08, 1.00),
-  align       = "v",
-  axis        = "lr",
-  labels      = c("A", "", "B"),
-  label_size  = BASE_PT + 1,
+  mortality_plot,
+  survival_plot,
+  ncol = 2,
+  rel_widths = c(1, 1.25),
+  align = "h",
+  axis = "tb",
+  labels = c("A", "B"),
+  label_size = FONT_PT[4],
+  label_fontfamily = BASE_FAM,
   label_fontface = "bold",
-  label_x     = c(0.01, NA, 0.01),
-  label_y     = c(0.98, NA, 0.98)
+  label_x = 0,
+  label_y = 0.98
 )
 
-final_plot <- cowplot::plot_grid(
-  plots_row, legend,
-  ncol        = 1,
-  rel_heights = c(1, 0.22)
+# Bottom row: C retains its own legend on the right.
+panel_c <- cowplot::plot_grid(
+  pathogen_fatality_plot,
+  labels = "C",
+  label_size = FONT_PT[4],
+  label_fontfamily = BASE_FAM,
+  label_fontface = "bold",
+  label_x = 0,
+  label_y = 0.98
 )
 
-figure_1 <- cowplot::ggdraw(final_plot) +
-  theme(plot.margin = margin(8, 10, 12, 10))
+bottom_row <- cowplot::plot_grid(
+  panel_c,
+  NULL,
+  ncol = 2,
+  rel_widths = c(3, 1)
+)
 
-figure_1
+figure_1 <- cowplot::plot_grid(
+  plots_row,
+  bottom_row,
+  ncol = 1,
+  rel_heights = c(1, 1)
+)
 
-# save 
-save_pdf(
-  plot     = figure_1,
-  file_pdf = "figures/figure1.pdf",
-  width_cm = FIG_W_CM,
-  aspect   = 0.75
+# save_plos() adds the outer whitespace once around the whole figure.
+save_plos(
+  plot = figure_1,
+  filename = "figures/figure1",
+  aspect = 0.95
 )

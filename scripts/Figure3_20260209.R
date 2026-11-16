@@ -26,7 +26,7 @@ library(sysfonts)
 # sizes
 FIG_W_CM   <- 8.7        # PNAS single-column width
 FIG_ASPECT <- 1.2        # 2×2 panels + legend
-BASE_PT    <- 9          # base font size (pt)
+BASE_PT    <- 9*2          # base font size (pt)
 BASE_FAM   <- "CMUSerif" # main serif font
 
 cm_to_in <- function(x) x / 2.54
@@ -80,27 +80,26 @@ save_pdf <- function(plot, file_pdf,
 #########################
 
 # 2025 sweep
-df_mort_2025 <- read_csv("./data/mortality_2025_da01_20251023.csv") %>%
+df_mort_2025 <- read_csv("./output/mortality_2025_nuhalf_20261002.csv") %>%
   rename(vac_start = vac_age,
          mortality_abs = total_mortality) %>%
   dplyr::filter(beta <= 500)
 
-df_yll_2025  <- read_csv("./data/yll_2025_da01_20251023.csv") %>%
+df_yll_2025  <- read_csv("./output/yll_2025_nuhalf_20261002.csv") %>%
   rename(vac_start = vac_age,
          YLL_abs = total_yll) %>%
   dplyr::filter(beta <= 500)
 
 # 2050 sweep
-df_mort_2050 <- read_csv("./data/mortality_2050_da01_20251023.csv") %>%
+df_mort_2050 <- read_csv("./output/mortality_2050_nuhalf_20261001.csv") %>%
   rename(vac_start = vac_age,
          mortality_abs = total_mortality) %>%
   dplyr::filter(beta <= 500)
 
-df_yll_2050  <- read_csv("./data/yll_2050_da01_20251023.csv") %>%
+df_yll_2050  <- read_csv("./output/yll_2050_nuhalf_20261001.csv") %>%
   rename(vac_start = vac_age,
          YLL_abs = total_yll) %>%
   dplyr::filter(beta <= 500)
-
 # Common factor levels (R0 and immune period) across all four datasets
 r0_vals <- sort(unique(round(
   c(df_mort_2025$beta, df_yll_2025$beta,
@@ -174,7 +173,7 @@ panel_plot_sq <- function(df_sub, title_text) {
     geom_tile(color = "white", linewidth = 0.25) +
     geom_text(
       aes(label = sprintf("%d", round(vac_start))),
-      size  = 1.4,          # small numbers in cells
+      size  = 1.4*2,          # small numbers in cells
       color = "grey30"
     ) +
     fill_scale +
@@ -295,6 +294,6 @@ figure_3  # view in RStudio
 save_pdf(
   plot     = figure_3,
   file_pdf = "figures/figure3.pdf",
-  width_cm = FIG_W_CM,
+  width_cm = 20,
   aspect   = FIG_ASPECT
 )
