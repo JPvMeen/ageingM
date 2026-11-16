@@ -38,5 +38,5 @@ srun "$HOME/.juliaup/bin/julia" \
 
 echo "Simulation finished at: $(date)"
 echo "Expected CSV outputs:"
-echo "  output/time_series_figure4_baseline_fva91.csv"
-echo "  output/time_age_figure4_baseline_fva91.csv"
+echo "  output/time_series_figure4_baseline_fva91_R0_1p5.csv"
+echo "  output/time_age_figure4_baseline_fva91_R0_1p5.csv"

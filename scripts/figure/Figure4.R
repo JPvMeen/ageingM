@@ -29,9 +29,11 @@ sci_fmt <- function(x) {
 #df_ta <- read_csv("data/time_age_influenza_2025_20251117.csv")
 output_tag <- "figure4_baseline"
 first_age_s <- 60  # original Figure 4 baseline (R0 = 3.0)
+R0_single <- 3.0
 fva_tag <- paste0("fva", gsub(".", "p", as.character(first_age_s), fixed = TRUE))
-df_ts <- read_csv(paste0("output/time_series_", output_tag, "_", fva_tag, ".csv"))
-df_ta <- read_csv(paste0("output/time_age_", output_tag, "_", fva_tag, ".csv"))
+R0_tag <- paste0("R0_", gsub(".", "p", as.character(R0_single), fixed = TRUE))
+df_ts <- read_csv(paste0("output/time_series_", output_tag, "_", fva_tag, "_", R0_tag, ".csv"))
+df_ta <- read_csv(paste0("output/time_age_", output_tag, "_", fva_tag, "_", R0_tag, ".csv"))
 
 t_ref <- 150
 

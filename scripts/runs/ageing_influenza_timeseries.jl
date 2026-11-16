@@ -17,6 +17,8 @@ mkpath(output_dir)
 # First vaccination age in file names; non-integer ages use 'p' as decimal separator.
 fva_age = isinteger(first_age_s) ? string(Int(first_age_s)) : replace(string(first_age_s), "." => "p")
 fva_tag = "fva$(fva_age)"
+R0_value = isinteger(R0_single) ? string(Int(R0_single)) : replace(string(R0_single), "." => "p")
+R0_tag = "R0_$(R0_value)"
 
 mask_s = age_mask_from_first(age_points, first_age_s, end_age)
 vac_s  = VacSched(mask_s, rate_in_window, camp_width, camp_phase, t_vac_start)
@@ -78,7 +80,7 @@ df_time = DataFrame(
 )
 
 CSV.write(joinpath(output_dir,
-          "time_series_$(output_tag)_$(fva_tag).csv"),
+          "time_series_$(output_tag)_$(fva_tag)_$(R0_tag).csv"),
           df_time)
 
 # take same time points (last 100 years, 20/year)
@@ -99,5 +101,5 @@ for (j, age) in enumerate(ages_year)
 end
 
 CSV.write(joinpath(output_dir,
-          "time_age_$(output_tag)_$(fva_tag).csv"),
+          "time_age_$(output_tag)_$(fva_tag)_$(R0_tag).csv"),
           df_I)
