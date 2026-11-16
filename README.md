@@ -76,6 +76,49 @@ Rscript scripts/figure/Figure4.R
 
 For the old general-scenario Julia diagnostic plots, an optional standalone `scripts/figure/ageing_general_diagnostics.jl` script is available. It is not executed by the general parameter sweeps.
 
+
+### Parallel influenza forcing sweeps (Slurm)
+
+For full 30% or 80% vaccination-coverage forcing sweeps, submit a Slurm array
+from the repository root:
+
+```bash
+bash submit_influenza_array.sh 80
+bash submit_influenza_array.sh 30
+```
+
+Each submission creates a six-task Slurm array (one task per seasonal forcing:
+0, 0.05, 0.10, 0.15, 0.20, 0.30) with four Julia threads per task.
+By default, at most three tasks are run concurrently. To lower concurrency:
+
+```bash
+INFLUENZA_MAX_PARALLEL=2 bash submit_influenza_array.sh 80
+```
+
+Each array job has its own batch ID, with intermediate CSVs and task manifests in
+`output/forcing_parts/coverage80_batch<array_job_id>/` (or `coverage30`).
+This prevents mixing different batches, and the merge script checks each
+manifest, parameter grid, row count, forcing value, and duplicate keys.
+
+A separate Slurm merge job is submitted with an `afterok` dependency:
+**it only starts after every array task succeeds**. Its outputs are
+
+```text
+output/mortality_influenza_2025_v50_forcing_sweep_coverage80_batch<array_job_id>.csv
+output/yll_influenza_2025_v50_forcing_sweep_coverage80_batch<array_job_id>.csv
+```
+
+The combined CSVs retain the existing model's column names and all six forcing
+levels. The `batch<array_job_id>` suffix avoids replacing previous datasets.
+Figure 5 and Figure 6 currently read older, fixed filenames; when using a new
+combined dataset, update the R CSV path and filter to `force_frac == 0.05`
+before computing relative mortality. Keep the no-vaccination baseline
+(`first_age == 200`) within that forcing level.
+
+The existing single-job scripts `test_ageing_influenza_coverage30.sh` and
+`test_ageing_influenza_coverage80.sh` remain available as before. The Slurm
+array and merge scripts do **not** generate figures or time-series CSVs.
+
 ## Input and output
 
 ### Input

@@ -398,8 +398,10 @@ function run_one!(β::Float64, ν::Float64, first_age::Float64, forcing::Float64
 end
 
 # Sweep includes zero seasonality, the original 5% baseline, and stronger forcing.
-function run_influenza_sweep(; forcing_values=forcing_vals)
-    mkpath(output_dir)
+function run_influenza_sweep(; forcing_values=forcing_vals,
+                               output_directory=output_dir,
+                               output_suffix=nothing)
+    mkpath(output_directory)
     stamp = Dates.format(Dates.today(), "yyyymmdd")
     println("Output stamp: ", stamp)
 
@@ -422,8 +424,15 @@ function run_influenza_sweep(; forcing_values=forcing_vals)
     df_yll  = select(df, :beta, :R0, :nu, :nu_duration_years, :first_age, :force_frac, :total_yll)
 
     coverage_tag = Int(round(100 * coverage_campaign))
-    CSV.write(joinpath(output_dir, "mortality_influenza_2025_v50_forcing_sweep_coverage$(coverage_tag)_$(stamp).csv"), df_mort)
-    CSV.write(joinpath(output_dir, "yll_influenza_2025_v50_forcing_sweep_coverage$(coverage_tag)_$(stamp).csv"), df_yll)
+    suffix = isnothing(output_suffix) ? stamp : string(output_suffix)
+    mortality_file = joinpath(output_directory, "mortality_influenza_2025_v50_forcing_sweep_coverage$(coverage_tag)_$(suffix).csv")
+    yll_file = joinpath(output_directory, "yll_influenza_2025_v50_forcing_sweep_coverage$(coverage_tag)_$(suffix).csv")
+    # Array-task outputs are unique; never silently overwrite an existing task result.
+    if !isnothing(output_suffix) && (isfile(mortality_file) || isfile(yll_file))
+        error("Partial sweep result already exists for $(suffix). Inspect or remove it before retrying.")
+    end
+    CSV.write(mortality_file, df_mort)
+    CSV.write(yll_file, df_yll)
 
     println("Finished sweeps: ", nrow(df), " runs.")
     return df
