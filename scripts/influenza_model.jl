@@ -8,7 +8,6 @@ packages = [
     "DiffEqCallbacks",
     "CSV",
     "DataFrames",
-    "Plots",
     "QuadGK",
     "Distributions",
     "ThreadsX",
@@ -39,7 +38,6 @@ println("BLAS threads  : ", BLAS.get_num_threads())
 # directories 
 base_dir    = normpath(joinpath(@__DIR__, ".."))
 data_dir    = joinpath(base_dir, "data")
-figures_dir = joinpath(base_dir, "figures")
 output_dir  = joinpath(base_dir, "output")
 
 # time-age grid 
