@@ -14,20 +14,25 @@
 ################################################################################
 
 # packages
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(readr)
-library(cowplot)
-library(grid)
-library(latex2exp)
-library(showtext)
-library(sysfonts)
+packages <- c(
+  "ggplot2", "dplyr", "tidyr", "readr", "cowplot",
+  "grid", "latex2exp", "showtext", "sysfonts"
+)
+
+# Install only missing packages (grid comes with R).
+missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
+
+if (length(missing) > 0L) {
+  install.packages(missing, repos = "https://cloud.r-project.org")
+}
+
+# Load all packages.
+lapply(packages, library, character.only = TRUE)
 
 # sizes
 FIG_W_CM   <- 8.7        # PNAS single-column width
 FIG_ASPECT <- 1.0        # square-ish by default
-BASE_PT    <- 9          # base font size (pt)
+BASE_PT    <- 9*1.2          # base font size (pt)
 BASE_FAM   <- "CMUSerif" # main serif font
 
 cm_to_in <- function(x) x / 2.54
@@ -82,7 +87,7 @@ save_pdf <- function(plot, file_pdf,
 
 # sweep results (mortality)
 # old: _da01_20251023.csv; new: _nu02_20251119.csv
-df_mort <- read_csv("./data/mortality_2025_da01_20251023.csv") %>%
+df_mort <- read_csv("./output/mortality_2025_nuhalf_20261002.csv") %>%
   rename(vac_start = vac_age, mortality_abs = total_mortality)
 
 # helper: prepare mortality data (relative to no-vacc baseline)
@@ -253,7 +258,7 @@ figure_2  # for inspection in RStudio
 save_pdf(
   plot     = figure_2,
   file_pdf = "figures/figure2.pdf",
-  width_cm = FIG_W_CM,
+  width_cm = 20,
   aspect   = 1.0
 )
 

@@ -1,0 +1,14 @@
+# Generated outputs
+outputs/
+output/
+results/
+figures/
+logs/
+
+# HPC job outputs
+slurm-*.out
+*.log
+
+# R
+.Rhistory
+.RData

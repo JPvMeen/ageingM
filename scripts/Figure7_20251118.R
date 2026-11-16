@@ -20,59 +20,7 @@ library(readr)
 library(cowplot)
 library(grid)
 
-# sizes
-FIG_W_CM   <- 8.7        # PNAS single-column width
-FIG_ASPECT <- 1.0        # default aspect
-BASE_PT    <- 9          # base font size (pt)
-BASE_FAM   <- "CMUSerif" # or other serif
-
-cm_to_in <- function(x) x / 2.54
-
-# simple scientific format (if needed)
-sci_fmt <- function(x) {
-  fmt <- format(x, scientific = TRUE)
-  gsub("e\\+0?", "e", fmt)
-}
-
-# global theme (white backgrounds, as in other figs)
-theme_pub <- theme_minimal(base_size = BASE_PT, base_family = BASE_FAM) +
-  theme(
-    panel.background = element_rect(fill = "white", colour = NA),
-    plot.background  = element_rect(fill = "white", colour = NA),
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_line(linewidth = 0.25),
-    axis.ticks       = element_line(linewidth = 0.25),
-    axis.title       = element_text(margin = margin(t = 2, r = 2, b = 2, l = 2)),
-    plot.title       = element_text(face = "bold"),
-    plot.margin      = margin(4, 4, 4, 4),
-    aspect.ratio     = FIG_ASPECT
-  )
-theme_set(theme_pub)
-
-# geom defaults
-update_geom_defaults("line",    list(linewidth = 0.4))
-update_geom_defaults("segment", list(linewidth = 0.4))
-update_geom_defaults("point",   list(size = 1.4))
-
-# pdf saver (PNAS style, 300 dpi, cairo_pdf)
-save_pdf <- function(plot, file_pdf,
-                     width_cm = FIG_W_CM,
-                     aspect   = FIG_ASPECT,
-                     dpi      = 300) {
-  w_in <- cm_to_in(width_cm)
-  h_in <- w_in * aspect
-  ggplot2::ggsave(
-    filename  = file_pdf,
-    plot      = plot,
-    width     = w_in,
-    height    = h_in,
-    units     = "in",
-    dpi       = dpi,
-    device    = cairo_pdf,
-    limitsize = FALSE
-  )
-  message("Wrote: ", file_pdf)
-}
+source("functions/format_PLOS.R")
 
 #########################################
 # Figure S1. Age-specific contact matrix
@@ -126,9 +74,10 @@ z_min <- min(heatmap_data$log_contact, na.rm = TRUE)
 z_max <- max(heatmap_data$log_contact, na.rm = TRUE)
 
 heatmap_plot <- ggplot(heatmap_data, aes(x = age_x, y = age_y, fill = log_contact)) +
-  geom_tile() +
+  #geom_tile(color=NA, linewidth=0) +
+  geom_raster(interpolate = FALSE) +
   scale_fill_gradientn(
-    colours = c("#56B4E9", "#E69F00"),
+    colours = c("#56B4E9","white","#E69F00"),
     limits  = c(z_min, z_max),
     name    = "log C(a, a')"
   ) +
@@ -146,26 +95,24 @@ heatmap_plot <- ggplot(heatmap_data, aes(x = age_x, y = age_y, fill = log_contac
   ) +
   coord_fixed() +
   labs(title = "Person-to-person contact rates") +
-  theme_bw(base_size = BASE_PT, base_family = BASE_FAM) +
+  theme_pub +
   theme(
     panel.background = element_rect(fill = "white", colour = NA),
     plot.background  = element_rect(fill = "white", colour = NA),
     panel.grid       = element_blank(),
-    axis.title       = element_text(size = BASE_PT),
-    axis.text        = element_text(size = BASE_PT - 1),
-    plot.title       = element_text(hjust = 0.5, size = BASE_PT + 1),
+    #axis.title       = element_text(size = BASE_PT),
+    #axis.text        = element_text(size = BASE_PT - 1),
+    #plot.title       = element_text(hjust = 0.5, size = BASE_PT + 1),
     legend.position  = "bottom",
-    legend.title     = element_text(size = BASE_PT),
-    legend.text      = element_text(size = BASE_PT - 1),
+    #legend.title     = element_text(size = BASE_PT),
+    #legend.text      = element_text(size = BASE_PT - 1),
     plot.margin      = margin(6, 6, 6, 6)
   )
 
 heatmap_plot
 
 # save as single-column supplementary figure
-save_pdf(
+save_plos(
   plot     = heatmap_plot,
-  file_pdf = "figures/figureS1.pdf",
-  width_cm = FIG_W_CM,
-  aspect   = 1.0
+  filename = "figures/figureS1"
 )
