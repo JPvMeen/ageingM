@@ -1,7 +1,7 @@
 import Pkg
 
 # Project root: one level above this script's scripts/ directory
-Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.activate(joinpath(@__DIR__, "..", ".."))
 
 packages = [
     "DifferentialEquations",
@@ -36,7 +36,7 @@ println("Julia threads : ", Threads.nthreads())
 println("BLAS threads  : ", BLAS.get_num_threads())
 
 # directories 
-base_dir    = normpath(joinpath(@__DIR__, ".."))
+base_dir    = normpath(joinpath(@__DIR__, "..", ".."))
 data_dir    = joinpath(base_dir, "data")
 output_dir  = joinpath(base_dir, "output")
 

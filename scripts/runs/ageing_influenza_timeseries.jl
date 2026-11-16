@@ -1,7 +1,7 @@
 # Generate CSV data for Figure 4; plotting is done separately in Figure4_20251118.R.
 # Change these parameters and output_tag to generate a different scenario.
 coverage_campaign = 0.80
-include(joinpath(@__DIR__, "influenza_model.jl"))
+include(joinpath(@__DIR__, "..", "models", "influenza_model.jl"))
 
 R0_single       = 3.0
 forcing_single  = 0.05
