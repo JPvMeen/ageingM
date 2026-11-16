@@ -51,7 +51,8 @@ n_age       = length(age_points)
 
 # transmission related parameters
 gamma      = 50.0               # recovery rate (duration: 1 week)
-force_frac = 0.05               # baseline used for Figure 4; sweep passes amplitudes explicitly
+# seasonal forcing amplitudes for the parameter sweep
+forcing_vals = [0.0, 0.05, 0.10, 0.15, 0.20, 0.30]
 
 # R0 sweep 
 R0_vals   = [1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4, 4.25, 4.5, 4.75, 5, 5.25, 
@@ -399,7 +400,7 @@ function run_one!(β::Float64, ν::Float64, first_age::Float64, forcing::Float64
 end
 
 # Sweep includes zero seasonality, the original 5% baseline, and stronger forcing.
-function run_influenza_sweep(; forcing_vals = [0.0, 0.05, 0.10, 0.15, 0.20, 0.30])
+function run_influenza_sweep(; forcing_vals=forcing_vals)
     mkpath(output_dir)
     stamp = Dates.format(Dates.today(), "yyyymmdd")
     println("Output stamp: ", stamp)
