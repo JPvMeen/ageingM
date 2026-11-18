@@ -51,7 +51,7 @@ These all use `scripts/models/ageing_general_model.jl`. The 2025 and 2050 run sc
 
 - `scripts/runs/ageing_influenza_coverage30.jl` — Seasonal influenza parameter sweep with 30% vaccination coverage.
 - `scripts/runs/ageing_influenza_coverage80.jl` — Seasonal influenza parameter sweep with 80% vaccination coverage.
-- `scripts/runs/ageing_influenza_timeseries.jl` — Generates `time_series_<tag>_fva<age>.csv` and `time_age_<tag>_fva<age>.csv` using the same influenza model.
+- `scripts/runs/ageing_influenza_timeseries.jl` — Generates `time_series_<tag>_fva<age>_R0_<R0>_nu_<nu>.csv` and `time_age_<tag>_fva<age>_R0_<R0>_nu_<nu>.csv` using the same influenza model.
 
 Both influenza coverage sweeps and the time-series run use `scripts/models/influenza_model.jl`.
 
@@ -118,6 +118,32 @@ before computing relative mortality. Keep the no-vaccination baseline
 The existing single-job scripts `test_ageing_influenza_coverage30.sh` and
 `test_ageing_influenza_coverage80.sh` remain available as before. The Slurm
 array and merge scripts do **not** generate figures or time-series CSVs.
+
+### Parameterized influenza time-series simulations
+
+Submit a single scenario with Slurm, specifying `R0`, vaccine-immunity
+**waning rate** `nu` (per year), and the first vaccination age:
+
+```bash
+mkdir -p logs
+sbatch test_ageing_influenza_timeseries.sh 1.5 0.5 91
+```
+
+Here `nu=0.5` means a mean vaccine-immunity duration of `1/nu = 2` years.
+The optional fourth argument is an output tag (default `figure4_baseline`).
+The default coverage is 80%, forcing is 0.05, and vaccination begins at year 200.
+
+The example saves `output/time_series_figure4_baseline_fva91_R0_1p5_nu_0p5.csv`
+and `output/time_age_figure4_baseline_fva91_R0_1p5_nu_0p5.csv`.
+Numbers in file tags use `p` for decimal points. Each parameter combination
+gets a distinct filename. Both Figure4.R and Figure4_diagnostic.R now include
+the appropriate `nu` tag when reading CSV data.
+
+The Julia script also accepts these parameters directly:
+
+```bash
+julia --project=. scripts/runs/ageing_influenza_timeseries.jl 1.5 0.5 91
+```
 
 ## Input and output
 

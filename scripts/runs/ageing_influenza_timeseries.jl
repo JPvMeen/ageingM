@@ -1,17 +1,31 @@
 # Generate CSV data for Figure 4; plotting is done separately in Figure4.R.
-# Change these parameters and output_tag to generate a different scenario.
+# Parameterized influenza time series: write CSV data only, never figures.
+# Run directly: julia --project=. scripts/runs/ageing_influenza_timeseries.jl <R0> <nu> <first_age_s> [output_tag]
+# For HPC: sbatch test_ageing_influenza_timeseries.sh 1.5 0.5 91
+# nu is the *waning rate per year*; nu=0.5 means a mean duration of 2 years.
+length(ARGS) in (0, 3, 4) || error("Usage: ageing_influenza_timeseries.jl <R0> <nu> <first_age_s> [output_tag]")
+
+R0_single   = length(ARGS) >= 3 ? parse(Float64, ARGS[1]) : 1.5
+ν_single    = length(ARGS) >= 3 ? parse(Float64, ARGS[2]) : 0.5
+first_age_s = length(ARGS) >= 3 ? parse(Float64, ARGS[3]) : 91.0
+output_tag  = length(ARGS) == 4 ? ARGS[4] : "figure4_baseline"
+
+isfinite(R0_single) && R0_single > 0 || error("R0 must be positive and finite")
+isfinite(ν_single) && ν_single > 0 || error("nu must be positive and finite (per year)")
+isfinite(first_age_s) && 0.0 <= first_age_s <= 100.0 ||
+    error("first_age_s must be between 0 and 100 years")
+occursin(r"^[A-Za-z0-9_-]+$", output_tag) ||
+    error("output_tag may contain only letters, digits, underscores and hyphens")
+
 coverage_campaign = 0.80
+forcing_single    = 0.05
+t_vac_start       = 200.0
+nu_duration       = 1.0 / ν_single
+
 include(joinpath(@__DIR__, "..", "models", "influenza_model.jl"))
-
-R0_single       = 1.5   # 3.0 baseline
-forcing_single  = 0.05
-nu_duration     = 2.0       # mean vaccine immunity duration in years
-first_age_s     = 91.0  # 60.0 baseline
-t_vac_start     = 200.0
-output_tag      = "figure4_baseline"
-
 β_single = gamma * R0_single
-ν_single = 1.0 / nu_duration
+
+println("Time series: R0=$(R0_single), nu=$(ν_single)/yr, mean duration=$(nu_duration) yr, first age=$(first_age_s), forcing=$(forcing_single), coverage=$(coverage_campaign)")
 
 mkpath(output_dir)
 # First vaccination age in file names; non-integer ages use 'p' as decimal separator.
@@ -19,6 +33,8 @@ fva_age = isinteger(first_age_s) ? string(Int(first_age_s)) : replace(string(fir
 fva_tag = "fva$(fva_age)"
 R0_value = isinteger(R0_single) ? string(Int(R0_single)) : replace(string(R0_single), "." => "p")
 R0_tag = "R0_$(R0_value)"
+nu_value = isinteger(ν_single) ? string(Int(ν_single)) : replace(string(ν_single), "." => "p")
+nu_tag = "nu_$(nu_value)"
 
 mask_s = age_mask_from_first(age_points, first_age_s, end_age)
 vac_s  = VacSched(mask_s, rate_in_window, camp_width, camp_phase, t_vac_start)
@@ -80,7 +96,7 @@ df_time = DataFrame(
 )
 
 CSV.write(joinpath(output_dir,
-          "time_series_$(output_tag)_$(fva_tag)_$(R0_tag).csv"),
+          "time_series_$(output_tag)_$(fva_tag)_$(R0_tag)_$(nu_tag).csv"),
           df_time)
 
 # take same time points (last 100 years, 20/year)
@@ -101,5 +117,5 @@ for (j, age) in enumerate(ages_year)
 end
 
 CSV.write(joinpath(output_dir,
-          "time_age_$(output_tag)_$(fva_tag)_$(R0_tag).csv"),
+          "time_age_$(output_tag)_$(fva_tag)_$(R0_tag)_$(nu_tag).csv"),
           df_I)

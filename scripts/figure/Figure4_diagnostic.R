@@ -32,8 +32,10 @@ first_age_s <- 91  # diagnostic scenario (R0 = 1.5)
 R0_single <- 1.5
 fva_tag <- paste0("fva", gsub(".", "p", as.character(first_age_s), fixed = TRUE))
 R0_tag <- paste0("R0_", gsub(".", "p", as.character(R0_single), fixed = TRUE))
-df_ts <- read_csv(paste0("output/time_series_", output_tag, "_", fva_tag, "_", R0_tag, ".csv"))
-df_ta <- read_csv(paste0("output/time_age_", output_tag, "_", fva_tag, "_", R0_tag, ".csv"))
+nu_single <- 0.5  # waning rate per year; 0.5 = 2 years of immunity
+nu_tag <- paste0("nu_", gsub(".", "p", as.character(nu_single), fixed = TRUE))
+df_ts <- read_csv(paste0("output/time_series_", output_tag, "_", fva_tag, "_", R0_tag, "_", nu_tag, ".csv"))
+df_ta <- read_csv(paste0("output/time_age_", output_tag, "_", fva_tag, "_", R0_tag, "_", nu_tag, ".csv"))
 
 t_ref <- 150
 
